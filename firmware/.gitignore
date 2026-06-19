@@ -1,0 +1,11 @@
+# PlatformIO build dirs
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Secrets
+include/secrets.h
+.env
+
+# IDE
+.vscode/
