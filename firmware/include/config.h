@@ -8,11 +8,11 @@
 
 // E-paper panel (SPI, via Waveshare 7.3" HAT (E))
 #define EPD_BUSY   13   // input
-#define EPD_RST    12   // TODO: confirm
-#define EPD_DC     11   // TODO: confirm
-#define EPD_CS     10   // SPI CS    -- TODO: confirm
-#define EPD_CLK     9   // SPI SCK   -- TODO: confirm
-#define EPD_DIN     8   // SPI MOSI  -- TODO: confirm
+#define EPD_RST    12   //
+#define EPD_DC     11   //
+#define EPD_CS     10   // SPI CS 
+#define EPD_CLK     9   // SPI SCK
+#define EPD_DIN     8   // SPI MOSI
 #define EPD_PWR     7   // panel/HAT power rail; HIGH only during refresh
 
 // Analog battery sense. MUST be on ADC1 (GPIO 1-10);
