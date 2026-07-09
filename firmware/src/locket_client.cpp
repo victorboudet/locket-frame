@@ -1,4 +1,6 @@
 #include "locket_client.h"
+#include "certs.h"
+#include "config.h"
 
 #include <Arduino.h>
 #include <WiFiClientSecure.h>
@@ -19,7 +21,12 @@ bool locket_get_latest_moment(const LocketAuthState& auth,
     String url = String(BASE_URL) + "/getLatestMomentV2";
 
     WiFiClientSecure client;
-    client.setInsecure();   // TODO: pin api.locketcamera.com root CA
+#if ALLOW_INSECURE_TLS
+    client.setInsecure();
+    Serial.println("[locket] WARNING: TLS verification disabled");
+#else
+    client.setCACert(GTS_ROOT_R1);   // api.locketcamera.com chains to GTS Root R1
+#endif
 
     HTTPClient http;
     http.setTimeout(30000);
@@ -55,6 +62,7 @@ bool locket_get_latest_moment(const LocketAuthState& auth,
     // ArduinoJson wildcard for "any array index — keep this shape for all".
     JsonDocument filter;
     filter["result"]["data"][0]["thumbnail_url"]       = true;
+    filter["result"]["data"][0]["canonical_uid"]       = true;
     filter["result"]["data"][0]["date"]["_seconds"]    = true;
     filter["result"]["missed_moments_count"]           = true;
 
@@ -81,12 +89,15 @@ bool locket_get_latest_moment(const LocketAuthState& auth,
     if (out->moments_count > 0) {
         JsonObjectConst m0 = data[0].as<JsonObjectConst>();
         const char* thumb = m0["thumbnail_url"];
+        const char* uid   = m0["canonical_uid"];
         out->first.thumbnail_url = thumb ? thumb : "";
+        out->first.canonical_uid = uid ? uid : "";
         // date._seconds is a Firebase Timestamp; usually an int, occasionally
         // serialized as a float. .as<uint64_t>() handles both.
         out->first.date_seconds = m0["date"]["_seconds"].as<uint64_t>();
     } else {
         out->first.thumbnail_url = "";
+        out->first.canonical_uid = "";
         out->first.date_seconds = 0;
     }
 

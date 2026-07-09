@@ -7,6 +7,7 @@
 
 struct LocketMoment {
     String   thumbnail_url;
+    String   canonical_uid;    // stable moment id, used to skip re-renders
     uint64_t date_seconds;     // Unix epoch seconds (moment.date._seconds)
 };
 

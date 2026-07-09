@@ -5,7 +5,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-API_KEY = os.environ["FIREBASE_API_KEY"]
+API_KEY = os.environ.get("FIREBASE_API_KEY")
+if not API_KEY:
+    raise SystemExit(
+        "FIREBASE_API_KEY is not set — copy .env.example to .env and fill it in"
+    )
 SIGNIN_URL = f"https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPassword?key={API_KEY}"
 REFRESH_URL = f"https://securetoken.googleapis.com/v1/token?key={API_KEY}"
 
@@ -39,6 +43,7 @@ class LocketAuth:
                 "returnSecureToken": True,
                 "clientType": "CLIENT_TYPE_IOS",
             },
+            timeout=30.0,
         )
         if r.status_code != 200:
             print("Sign-in failed:", r.status_code, r.json())
@@ -56,6 +61,7 @@ class LocketAuth:
                 "grantType": "refresh_token",
                 "refreshToken": self.refresh_token,
             },
+            timeout=30.0,
         )
         r.raise_for_status()
         data = r.json()
@@ -67,5 +73,11 @@ class LocketAuth:
         if self.id_token is None:
             self.sign_in()
         elif time.time() >= self.expires_at:
-            self.refresh()
+            try:
+                self.refresh()
+            except httpx.HTTPError:
+                # Refresh tokens get revoked (e.g. password change) — fall
+                # back to a fresh password sign-in.
+                self.sign_in()
+        assert self.id_token is not None
         return self.id_token

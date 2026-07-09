@@ -1,4 +1,5 @@
 #include "image.h"
+#include "certs.h"
 #include "config.h"
 #include "secrets.h"
 
@@ -57,6 +58,27 @@ bool wifi_connect() {
 void wifi_disconnect() {
     WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
+}
+
+// Any time after 2023 counts as "the clock has been set".
+static constexpr time_t CLOCK_VALID_AFTER = 1672531200;
+
+bool time_sync() {
+    time_t now = time(nullptr);
+    if (now > CLOCK_VALID_AFTER) return true;   // RTC survived deep sleep
+
+    Serial.println("[time] syncing over NTP");
+    configTime(0, 0, "pool.ntp.org", "time.google.com");
+    uint32_t t0 = millis();
+    while ((now = time(nullptr)) <= CLOCK_VALID_AFTER) {
+        if (millis() - t0 > 15000) {
+            Serial.println("[time] NTP timeout");
+            return false;
+        }
+        delay(100);
+    }
+    Serial.printf("[time] clock set, unix=%lu\n", (unsigned long)now);
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -208,7 +230,12 @@ bool image_render_from_url(const char* url, UBYTE* fb) {
     Serial.printf("[image] GET %s\n", url);
 
     WiFiClientSecure client;
-    client.setInsecure();   // TODO: pin Google GTS Root R1 once we leave dev.
+#if ALLOW_INSECURE_TLS
+    client.setInsecure();
+    Serial.println("[image] WARNING: TLS verification disabled");
+#else
+    client.setCACert(GTS_ROOT_R4);   // wsrv.nl chains to GTS Root R4
+#endif
     HTTPClient http;
     http.setTimeout(15000);
     if (!http.begin(client, url)) {

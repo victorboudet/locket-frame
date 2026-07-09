@@ -32,9 +32,17 @@
 
 // Open-Meteo coordinates + local timezone offset (seconds from UTC), applied
 // to the moment's date._seconds to render "sent HH:MM".
-#define LATITUDE                 0.0f   // TODO: set
-#define LONGITUDE                0.0f   // TODO: set
-#define TZ_OFFSET_S              0      // TODO: set
+#define LATITUDE                 0.0f   // TODO: set (weather deferred)
+#define LONGITUDE                0.0f   // TODO: set (weather deferred)
+// Europe/Paris summer time (CEST, UTC+2). Fixed offset — no DST handling yet,
+// so rendered times run 1 h ahead between late October and late March.
+#define TZ_OFFSET_S              7200
+
+// TLS: 0 = verify server certificates against the pinned Google Trust
+// Services roots in certs.h (needs an NTP-synced clock, see time_sync()).
+// Set to 1 ONLY as a temporary escape hatch if a root rotation upstream
+// breaks the handshake — it disables all certificate checking.
+#define ALLOW_INSECURE_TLS       0
 
 // Battery: Vbatt = Vadc * BATT_DIVIDER_RATIO. 2.0 matches a 2x equal-resistor
 // divider. LiPo voltage->% endpoints follow.

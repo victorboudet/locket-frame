@@ -19,7 +19,14 @@ class LocketClient:
             timeout=30.0,
         )
         r.raise_for_status()
-        return r.json()["result"]
+        body = r.json()
+        if "result" not in body:
+            # Undocumented API — when the response shape shifts upstream,
+            # surface what actually came back instead of a bare KeyError.
+            raise RuntimeError(
+                f"{endpoint}: unexpected response shape: {str(body)[:300]}"
+            )
+        return body["result"]
 
     def get_latest_moment(self, last_fetch: int = 1) -> dict:
         """

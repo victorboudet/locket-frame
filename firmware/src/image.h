@@ -10,6 +10,11 @@ bool wifi_connect();
 // Drop WiFi and shut the radio down.
 void wifi_disconnect();
 
+// Sync the system clock over NTP (needed for TLS certificate validation).
+// The ESP32 RTC keeps time through deep sleep, so this is a no-op on most
+// wakes. Returns false if the clock is unset and NTP doesn't answer in time.
+bool time_sync();
+
 // Wrap a source URL in a weserv request that returns a wxh JPEG. Caller
 // owns the returned String. Not used in phase 3 (test URL is already weserv);
 // phase 4+ will use this for Locket thumbnail URLs.

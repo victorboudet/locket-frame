@@ -1,4 +1,6 @@
 #include "locket_auth.h"
+#include "certs.h"
+#include "config.h"
 #include "secrets.h"
 
 #include <Arduino.h>
@@ -34,7 +36,12 @@ bool locket_sign_in(const char* email, const char* password,
     Serial.println("[locket] POST verifyPassword");
 
     WiFiClientSecure client;
-    client.setInsecure();   // TODO: pin GTS Root R1 once we leave dev.
+#if ALLOW_INSECURE_TLS
+    client.setInsecure();
+    Serial.println("[locket] WARNING: TLS verification disabled");
+#else
+    client.setCACert(GTS_ROOT_R1);   // www.googleapis.com chains to GTS Root R1
+#endif
 
     HTTPClient http;
     http.setTimeout(15000);
