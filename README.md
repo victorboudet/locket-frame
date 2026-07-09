@@ -12,7 +12,6 @@ An ESP32-S3 wakes up every few hours, signs in to Locket, checks whether a new m
 | ------------ | --------------------------------------------------------------------------------------------------- |
 | `firmware/`  | **The actual project** — PlatformIO firmware for the frame. See [`firmware/README.md`](firmware/README.md) for how it works. |
 | `scrapping/` | Python prototype used to reverse-engineer and test the Locket API before writing the C++. Still handy for archiving thumbnails locally and for debugging API changes from a desktop. |
-| `luckit/`    | Third-party Chrome extension ([michioxd/luckit](https://github.com/michioxd/luckit)) cloned as API reference. Gitignored, not part of this repo. |
 
 ## Quick start
 
@@ -25,13 +24,10 @@ pio run -t upload
 pio device monitor
 ```
 
-Run the desktop scraper (optional, for testing the API):
+You will need a Locket account and the Firebase API key shipped with the Locket iOS app (see `firmware/include/secrets.h.example`).
 
-```sh
-cd scrapping
-cp .env.example .env    # then fill in your credentials
-uv sync
-uv run main.py          # downloads the latest moment(s) to downloads/
-```
+For testing the API and scraping moments locally, see the [`scrapping/` directory README](scrapping/README.md).
 
-Both need a Locket account and the Firebase API key shipped with the Locket iOS app (see `scrapping/.env.example`).
+## Thanks
+
+- [michioxd/luckit](https://github.com/michioxd/luckit): For documenting the Locket API and helping me understand how it works.
