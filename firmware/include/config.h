@@ -28,7 +28,7 @@
 
 // Timer-wake period in seconds. Keep modest -- full refresh is slow and the
 // E6 panel has a finite refresh-cycle budget.
-#define REFRESH_INTERVAL_S       (60)
+#define REFRESH_INTERVAL_S       (60 * 15)
 
 // Open-Meteo coordinates + local timezone offset (seconds from UTC), applied
 // to the moment's date._seconds to render "sent HH:MM".
