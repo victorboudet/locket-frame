@@ -6,6 +6,8 @@ An ESP32-S3 wakes up every few hours, signs in to Locket, checks whether a new m
 
 ![stack](https://img.shields.io/badge/ESP32--S3-PlatformIO-orange) ![panel](https://img.shields.io/badge/Waveshare_7.3%22-Spectra_E6-blue)
 
+> **Disclaimer:** This project is not officially related to, or endorsed by, Locket. It uses unofficial APIs, and using this software may violate their Terms of Service, which could result in your account being banned. Use at your own risk!
+
 ## Repository layout
 
 | Path         | What it is                                                                                          |
