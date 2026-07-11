@@ -30,6 +30,11 @@
 // E6 panel has a finite refresh-cycle budget.
 #define REFRESH_INTERVAL_S       (60 * 15)
 
+// Anti-ghosting: at least this often, flush the whole panel to white with a
+// full clear cycle before re-drawing (Waveshare recommends >= once per day
+// on colour panels so particles don't settle and burn in).
+#define PANEL_CLEAN_INTERVAL_S   (24 * 60 * 60)
+
 // Open-Meteo coordinates + local timezone offset (seconds from UTC), applied
 // to the moment's date._seconds to render "sent HH:MM".
 #define LATITUDE                 0.0f   // TODO: set (weather deferred)

@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <esp_sleep.h>
+#include <time.h>
 
 #include "config.h"
 #include "display.h"
@@ -17,6 +18,9 @@ SET_LOOP_TASK_STACK_SIZE(32 * 1024);
 RTC_DATA_ATTR static uint64_t last_shown_date_s = 0;
 RTC_DATA_ATTR static char     last_shown_uid[48] = {0};
 RTC_DATA_ATTR static bool     error_on_panel = false;
+// Unix time of the last anti-ghosting clean cycle (0 = never cleaned; the
+// first draw onto a blank panel resets the clock without a clear cycle).
+RTC_DATA_ATTR static uint64_t last_clean_s = 0;
 
 static void go_to_sleep() {
     esp_sleep_enable_timer_wakeup((uint64_t)REFRESH_INTERVAL_S * 1000000ULL);
@@ -60,6 +64,17 @@ void setup() {
     if (!wifi_connect()) fail("wifi failed");
     if (!time_sync())    fail("time sync failed");   // TLS needs a set clock
 
+    // Anti-ghosting: due once PANEL_CLEAN_INTERVAL_S has passed since the
+    // last clear cycle — but only when a photo is up (a blank panel has
+    // nothing to de-ghost, and the clean path needs an image to redraw).
+    uint64_t now_s = (uint64_t)time(nullptr);
+    bool clean_due = last_shown_date_s != 0 &&
+                     now_s - last_clean_s >= PANEL_CLEAN_INTERVAL_S;
+    if (clean_due) {
+        Serial.printf("[main] panel clean due (last clean unix=%llu)\n",
+                      (unsigned long long)last_clean_s);
+    }
+
     LocketAuthState auth;
     if (!locket_sign_in(LOCKET_EMAIL, LOCKET_PASSWORD, &auth)) {
         fail("sign-in failed");
@@ -86,7 +101,9 @@ void setup() {
 
     // Same moment as last wake and the panel shows it fine: skip the render
     // and the ~30 s refresh entirely (saves power and panel refresh cycles).
-    if (!error_on_panel &&
+    // A due clean overrides the skip — the photo must be redrawn after the
+    // clear cycle wipes the panel.
+    if (!error_on_panel && !clean_due &&
         latest.first.date_seconds == last_shown_date_s &&
         latest.first.canonical_uid == last_shown_uid) {
         Serial.println("[main] moment unchanged - skipping refresh");
@@ -106,6 +123,10 @@ void setup() {
 
     panel_ui_draw_moment_info(latest.first.date_seconds);
 
+    // Clean only after the image rendered successfully, so a failed render
+    // never leaves the panel wiped with nothing to put back.
+    if (clean_due) display_clean();
+
     display_refresh();
     display_hibernate();
     display_free();
@@ -114,6 +135,9 @@ void setup() {
     strlcpy(last_shown_uid, latest.first.canonical_uid.c_str(),
             sizeof(last_shown_uid));
     error_on_panel = false;
+    // A fresh clean — or the very first draw onto a factory-blank panel —
+    // restarts the 24 h anti-ghosting clock.
+    if (clean_due || last_clean_s == 0) last_clean_s = now_s;
 
     go_to_sleep();
 }

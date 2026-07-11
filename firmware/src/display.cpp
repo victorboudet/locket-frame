@@ -102,6 +102,13 @@ void display_refresh() {
     Serial.printf("[display] refresh complete in %u ms\n", millis() - t0);
 }
 
+void display_clean() {
+    Serial.println("[display] anti-ghosting clean (full clear cycle, ~30s)");
+    uint32_t t0 = millis();
+    EPD_7IN3E_Clear(EPD_7IN3E_WHITE);
+    Serial.printf("[display] clean complete in %u ms\n", millis() - t0);
+}
+
 void display_free() {
     if (framebuffer) {
         free(framebuffer);

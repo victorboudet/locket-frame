@@ -19,6 +19,11 @@ void display_test_pattern();
 // Push the current framebuffer to the panel (one full refresh, ~25-30s).
 void display_refresh();
 
+// Anti-ghosting clean: drive every pixel to white with a full clear cycle
+// (~25-30s, costs one refresh cycle). The panel is left blank — follow with
+// display_refresh() to put the image back. Requires display_init().
+void display_clean();
+
 // Tell the panel to hibernate and drop EPD_PWR. Safe to follow with
 // esp_deep_sleep_start().
 void display_hibernate();
