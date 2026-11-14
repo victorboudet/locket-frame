@@ -1,0 +1,7 @@
+{
+  "name": "waveshare_epd",
+  "version": "1.0.0",
+  "description": "Waveshare 7.3-inch Spectra E6 driver and drawing helpers for locket-frame",
+  "frameworks": "arduino",
+  "platforms": "espressif32"
+}
