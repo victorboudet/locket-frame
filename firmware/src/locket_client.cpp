@@ -10,6 +10,20 @@
 namespace {
 
 constexpr const char* BASE_URL = "https://api.locketcamera.com";
+const char* DIAGNOSTIC_HEADERS[] = {
+    "server", "content-type", "via", "x-request-id",
+    "x-cloud-trace-context", "cf-ray", "cf-mitigated",
+};
+
+// Match the scraper's truthiness check, including empty error containers.
+bool has_errors(JsonVariantConst errors) {
+    if (errors.isNull()) return false;
+    if (errors.is<JsonArrayConst>()) return errors.size() > 0;
+    if (errors.is<JsonObjectConst>()) return errors.size() > 0;
+    if (errors.is<const char*>()) return errors.as<const char*>()[0] != '\0';
+    if (errors.is<bool>()) return errors.as<bool>();
+    return errors.as<double>() != 0;
+}
 
 }  // namespace
 
@@ -25,15 +39,18 @@ bool locket_get_latest_moment(const LocketAuthState& auth,
     client.setInsecure();
     Serial.println("[locket] WARNING: TLS verification disabled");
 #else
-    client.setCACert(GTS_ROOT_R1);   // api.locketcamera.com chains to GTS Root R1
+    client.setCACert(GTS_ROOT_CA_BUNDLE);
 #endif
 
     HTTPClient http;
     http.setTimeout(30000);
+    http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
     if (!http.begin(client, url)) {
         Serial.println("[locket] http.begin failed");
         return false;
     }
+    http.collectHeaders(DIAGNOSTIC_HEADERS,
+                        sizeof(DIAGNOSTIC_HEADERS) / sizeof(DIAGNOSTIC_HEADERS[0]));
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Authorization", String("Bearer ") + auth.id_token);
 
@@ -49,18 +66,26 @@ bool locket_get_latest_moment(const LocketAuthState& auth,
 
     int code = http.POST(req_str);
     String resp = http.getString();
-    http.end();
 
     if (code != HTTP_CODE_OK) {
         Serial.printf("[locket] getLatestMomentV2 status=%d\n", code);
         Serial.printf("[locket] response:\n%s\n", resp.c_str());
+        for (const char* name : DIAGNOSTIC_HEADERS) {
+            if (http.hasHeader(name)) {
+                Serial.printf("[locket] %s: %s\n", name, http.header(name).c_str());
+            }
+        }
+        http.end();
         return false;
     }
+    http.end();
 
     // Filter the response: moment objects contain a lot of fields we don't
     // care about (user, music, captions, etc.). The [0] in the filter is the
     // ArduinoJson wildcard for "any array index — keep this shape for all".
     JsonDocument filter;
+    filter["result"]["status"]                         = true;
+    filter["result"]["errors"]                         = true;
     filter["result"]["data"][0]["thumbnail_url"]       = true;
     filter["result"]["data"][0]["canonical_uid"]       = true;
     filter["result"]["data"][0]["date"]["_seconds"]    = true;
@@ -77,8 +102,19 @@ bool locket_get_latest_moment(const LocketAuthState& auth,
 
     JsonObjectConst result = doc["result"].as<JsonObjectConst>();
     if (result.isNull()) {
-        Serial.println("[locket] response missing 'result' envelope");
+        Serial.println("[locket] unexpected response shape: 'result' must be an object");
         Serial.printf("[locket] body:\n%s\n", resp.c_str());
+        return false;
+    }
+
+    // HTTP 200 can still carry an application failure. Check before treating
+    // missing data as an empty feed, just like scrapping/locket/client.py.
+    JsonVariantConst status = result["status"];
+    if (has_errors(result["errors"]) ||
+        (status.is<int64_t>() && status.as<int64_t>() >= 400)) {
+        String details;
+        serializeJson(result, details);
+        Serial.printf("[locket] getLatestMomentV2 API error: %.300s\n", details.c_str());
         return false;
     }
 

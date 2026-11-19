@@ -7,6 +7,7 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <cstring>
 
 // Mirrors scrapping/locket/auth.py:FIREBASE_HEADERS verbatim. Locket's
 // Firebase API key is bundle-restricted to com.locket.Locket; these headers
@@ -40,18 +41,24 @@ bool locket_sign_in(const char* email, const char* password,
     client.setInsecure();
     Serial.println("[locket] WARNING: TLS verification disabled");
 #else
-    client.setCACert(GTS_ROOT_R1);   // www.googleapis.com chains to GTS Root R1
+    client.setCACert(GTS_ROOT_CA_BUNDLE);
 #endif
 
     HTTPClient http;
-    http.setTimeout(15000);
+    http.setTimeout(30000);   // same response timeout as the scraper
     if (!http.begin(client, url)) {
         Serial.println("[locket] http.begin failed");
         return false;
     }
 
     for (const auto& h : FIREBASE_HEADERS) {
-        http.addHeader(h.name, h.value);
+        // ESP32 HTTPClient silently ignores User-Agent in addHeader().
+        // Use its dedicated setter so the Firebase iOS identity is sent.
+        if (strcmp(h.name, "User-Agent") == 0) {
+            http.setUserAgent(h.value);
+        } else {
+            http.addHeader(h.name, h.value);
+        }
     }
 
     JsonDocument body;
@@ -64,6 +71,15 @@ bool locket_sign_in(const char* email, const char* password,
 
     int code = http.POST(body_str);
     String resp = http.getString();
+    if (code < 0) {
+        Serial.printf("[locket] sign-in transport error: %s\n",
+                      HTTPClient::errorToString(code).c_str());
+        char tls_error[160] = {};
+        int tls_code = client.lastError(tls_error, sizeof(tls_error));
+        if (tls_code != 0) {
+            Serial.printf("[locket] TLS error %d: %s\n", tls_code, tls_error);
+        }
+    }
     http.end();
 
     if (code != HTTP_CODE_OK) {

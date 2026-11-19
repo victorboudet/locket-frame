@@ -1,16 +1,16 @@
 #pragma once
 
-// Root CAs pinned for TLS verification (see config.h ALLOW_INSECURE_TLS).
-// All three hosts the firmware talks to chain to Google Trust Services
-// (verified 2026-07-09 with openssl s_client):
-//   www.googleapis.com     -> WR2 -> GTS Root R1
-//   api.locketcamera.com   -> WR3 -> GTS Root R1
-//   wsrv.nl                -> WE1 -> GTS Root R4
+// Shared CA bundle for www.googleapis.com, api.locketcamera.com and wsrv.nl.
+// Servers can select RSA (R1) or ECDSA (R4) chains; do not assign one root
+// per hostname. On 2026-11-14 www.googleapis.com served WE2 -> GTS Root R4,
+// which failed verification with the previous R1-only sign-in trust store.
+// Source: https://pki.goog/repository/ (gtsr1.pem and gtsr4.pem).
+// WiFiClientSecure/mbedTLS accepts concatenated PEM certificates.
 // Both roots expire 2036-06-22. mbedTLS checks validity dates, so the
 // system clock must be NTP-synced before any handshake (see time_sync).
 
 // C=US, O=Google Trust Services LLC, CN=GTS Root R1
-static const char GTS_ROOT_R1[] = R"CERT(
+static const char GTS_ROOT_CA_BUNDLE[] = R"CERT(
 -----BEGIN CERTIFICATE-----
 MIIFVzCCAz+gAwIBAgINAgPlk28xsBNJiGuiFzANBgkqhkiG9w0BAQwFADBHMQsw
 CQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEU
@@ -42,10 +42,10 @@ Z6tGn6D/Qqc6f1zLXbBwHSs09dR2CQzreExZBfMzQsNhFRAbd03OIozUhfJFfbdT
 2tIMPNuzjsmhDYAPexZ3FL//2wmUspO8IFgV6dtxQ/PeEMMA3KgqlbbC1j+Qa3bb
 bP6MvPJwNQzcmRk13NfIRmPVNnGuV/u3gm3c
 -----END CERTIFICATE-----
-)CERT";
+)CERT"
 
 // C=US, O=Google Trust Services LLC, CN=GTS Root R4
-static const char GTS_ROOT_R4[] = R"CERT(
+R"CERT(
 -----BEGIN CERTIFICATE-----
 MIICCTCCAY6gAwIBAgINAgPlwGjvYxqccpBQUjAKBggqhkjOPQQDAzBHMQswCQYD
 VQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEUMBIG

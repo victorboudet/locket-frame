@@ -234,7 +234,7 @@ bool image_render_from_url(const char* url, UBYTE* fb) {
     client.setInsecure();
     Serial.println("[image] WARNING: TLS verification disabled");
 #else
-    client.setCACert(GTS_ROOT_R4);   // wsrv.nl chains to GTS Root R4
+    client.setCACert(GTS_ROOT_CA_BUNDLE);
 #endif
     HTTPClient http;
     http.setTimeout(15000);

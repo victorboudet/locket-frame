@@ -38,6 +38,8 @@ pio device monitor       # serial log, 115200 baud
 
 `secrets.h` is gitignored; it needs your WiFi credentials, Locket account, and the public Firebase API key from the Locket iOS app (pre-filled in `scrapping/.env.example`).
 
+The Waveshare display driver is included in `lib/waveshare_epd/`; PlatformIO discovers it automatically. Its ESP32 GPIO/SPI setup uses `include/config.h`. Upstream source revision and local adaptations are documented in [the driver README](lib/waveshare_epd/README.md).
+
 ## How it works
 
 Everything happens once in `setup()` — there is no `loop()`. At the end of every path the board arms a timer wakeup (`REFRESH_INTERVAL_S`, default 3 h) and enters deep sleep, which reboots it from scratch on wake.
@@ -63,6 +65,10 @@ boot / timer wake
 
 `locket_auth.cpp` performs a Firebase password sign-in against `identitytoolkit/.../verifyPassword`, sending the same iOS spoof headers as the Python prototype in `scrapping/` — Locket's Firebase key is bundle-restricted to the iOS app, so without those headers sign-in fails. `locket_client.cpp` then POSTs `getLatestMomentV2` on `api.locketcamera.com` (a Firebase Callable Function: request wrapped in `{"data": …}`, response in `{"result": …}`) and extracts three fields from the newest moment: `thumbnail_url`, `canonical_uid`, and `date._seconds`.
 
+Like the scraper, the firmware rejects application errors inside HTTP 200 responses (`result.errors` or an integer `result.status >= 400`) instead of treating them as an empty feed. Failed HTTP responses log the body and available diagnostic headers (`server`, `content-type`, `via`, request/trace IDs, and Cloudflare diagnostics); redirects are disabled. The ESP32 uses `HTTPClient`/mbedTLS, so the scraper's switch from HTTPX to curl does not change the firmware transport. An HTML 403 on the board still needs on-device investigation using those diagnostics.
+
+Firebase sign-in sets the iOS `User-Agent` with `HTTPClient::setUserAgent()` because the ESP32 library ignores that header in `addHeader()`. Negative sign-in status codes also log the HTTP transport error and any TLS error. If the scraper signs in but the frame does not, compare `LOCKET_EMAIL`, `LOCKET_PASSWORD`, and `FIREBASE_API_KEY` in `include/secrets.h` with the scraper's `.env`, then rebuild and flash: firmware credentials are compiled into the binary.
+
 ### Skipping needless refreshes
 
 The identity of the currently displayed moment (`canonical_uid` + timestamp) is stored in `RTC_DATA_ATTR` variables, which survive deep sleep. If the fetched moment is the one already on the panel, the firmware goes straight back to sleep — no image download, no 30 s refresh, no wasted panel cycle. E-paper is bistable, so the picture stays up with zero power.
@@ -80,7 +86,7 @@ The right 320×480 strip is drawn by `panel_ui.cpp` using the vendored Waveshare
 
 ### TLS
 
-All three HTTPS hosts (`www.googleapis.com`, `api.locketcamera.com`, `wsrv.nl`) chain to Google Trust Services roots, so certificate verification is on everywhere, pinned to GTS Root R1 / R4 in `include/certs.h` (roots valid until 2036). Because mbedTLS checks certificate validity dates, the clock must be set before the first handshake — that's what `time_sync()` (NTP) is for; the RTC keeps time through deep sleep so it only actually syncs on the first boot. If a root rotation upstream ever breaks the handshake, `ALLOW_INSECURE_TLS` in `config.h` is a temporary compile-time escape hatch.
+All three HTTPS hosts (`www.googleapis.com`, `api.locketcamera.com`, `wsrv.nl`) use the shared GTS Root R1 + R4 CA bundle in `include/certs.h` (roots valid until 2036), with certificate verification enabled. A hostname can serve different certificate chains: `www.googleapis.com` served a WE2 → R4 chain on 2026-11-14, which the previous R1-only sign-in configuration rejected. Both roots come from [Google's certificate repository](https://pki.goog/repository/). Because mbedTLS checks certificate validity dates, the clock must be set before the first handshake — that's what `time_sync()` (NTP) is for; the RTC keeps time through deep sleep so it only actually syncs on the first boot. If a root rotation upstream ever breaks the handshake, update the bundle; `ALLOW_INSECURE_TLS` in `config.h` is a temporary compile-time escape hatch.
 
 ### Failure behavior
 

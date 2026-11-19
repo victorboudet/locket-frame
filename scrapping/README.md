@@ -57,6 +57,8 @@ Locket's Firebase project is locked to its iOS bundle ID, so the request headers
 
 Thin wrapper around `https://api.locketcamera.com`. All endpoints are POST and follow the Firebase Callable Function convention (`{"data": …}` in, `{"result": …}` out).
 
+Locket API calls use `curl_cffi`: testing found that HTTPX received an HTML 403 while curl reached the same endpoint successfully. Firebase authentication and thumbnail downloads still use HTTPX. Application errors inside HTTP 200 responses are raised instead of being treated as an empty feed.
+
 - `get_latest_moment(last_fetch=1)` — `getLatestMomentV2`, returns the latest moment(s) newer than the given Unix timestamp.
 - `fetch_user(uid)` — `fetchUserV2`, profile lookup by UID.
 

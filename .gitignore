@@ -15,6 +15,9 @@ downloads/
 eggs/
 .eggs/
 lib/
+# Keep the firmware's vendored hardware drivers in version control.
+!/firmware/lib/
+!/firmware/lib/**
 lib64/
 parts/
 sdist/

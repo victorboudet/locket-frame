@@ -1,4 +1,4 @@
-import httpx
+from curl_cffi import requests
 from .auth import LocketAuth
 
 BASE_URL = "https://api.locketcamera.com"
@@ -9,7 +9,8 @@ class LocketClient:
         self.auth = auth
 
     def _call(self, endpoint: str, data: dict) -> dict:
-        r = httpx.post(
+        # Locket returns an HTML 403 for HTTPX's transport; curl reaches the API.
+        r = requests.post(
             f"{BASE_URL}/{endpoint}",
             headers={
                 "Content-Type": "application/json",
@@ -17,16 +18,41 @@ class LocketClient:
             },
             json={"data": data},
             timeout=30.0,
+            allow_redirects=False,
         )
+        if r.status_code >= 400:
+            print("Locket API error:", r.status_code, r.text)
+            diagnostic_headers = {
+                name: r.headers[name]
+                for name in (
+                    "server",
+                    "content-type",
+                    "via",
+                    "x-request-id",
+                    "x-cloud-trace-context",
+                    "cf-ray",
+                    "cf-mitigated",
+                )
+                if name in r.headers
+            }
+            print("Locket API response headers:", diagnostic_headers)
         r.raise_for_status()
         body = r.json()
-        if "result" not in body:
+        if not isinstance(body, dict) or not isinstance(body.get("result"), dict):
             # Undocumented API — when the response shape shifts upstream,
             # surface what actually came back instead of a bare KeyError.
             raise RuntimeError(
                 f"{endpoint}: unexpected response shape: {str(body)[:300]}"
             )
-        return body["result"]
+        result = body["result"]
+        # Locket can return HTTP 200 with an application error inside result.
+        status = result.get("status")
+        if result.get("errors") or (isinstance(status, int) and status >= 400):
+            raise RuntimeError(
+                f"{endpoint}: API error (status {status}): "
+                f"{str(result.get('errors', []))[:300]}"
+            )
+        return result
 
     def get_latest_moment(self, last_fetch: int = 1) -> dict:
         """

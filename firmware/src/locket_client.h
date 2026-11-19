@@ -20,8 +20,9 @@ struct LocketLatestResult {
 // POSTs https://api.locketcamera.com/getLatestMomentV2 with
 //   {"data": {"last_fetch": <seconds>, "should_count_missed_moments": true}}
 // and Authorization: Bearer <auth.id_token>, unwraps the {"result": ...}
-// envelope, fills `out`, returns true on HTTP 200 + valid JSON.
-// On failure logs status + body and returns false.
+// envelope, fills `out`, returns true on HTTP 200 + a valid result object
+// without application errors (nonempty errors or integer status >= 400).
+// On failure logs diagnostics and returns false without changing `out`.
 //
 // last_fetch_seconds = 1 returns the absolute latest moment (same default as
 // scrapping/locket/client.py:get_latest_moment).
